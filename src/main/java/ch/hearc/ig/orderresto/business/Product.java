@@ -46,4 +46,19 @@ public class Product {
     public Restaurant getRestaurant() {
         return restaurant;
     }
+
+    @Override
+    public String toString() {
+        return String.format(
+                "%s - %.2f de chez %s: %s",
+                this.getName(),
+                this.getUnitPrice(),
+                this.getRestaurant().getName(),
+                this.getDescription()
+        );
+    }
+
+    public void addOrder(Order order) {
+        this.orders.add(order);
+    }
 }

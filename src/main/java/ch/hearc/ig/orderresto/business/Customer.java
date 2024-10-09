@@ -38,4 +38,8 @@ public abstract class Customer {
     public Address getAddress() {
         return address;
     }
+
+    public void addOrder(Order order) {
+        this.orders.add(order);
+    }
 }

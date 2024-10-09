@@ -1,6 +1,7 @@
 package ch.hearc.ig.orderresto.presentation;
 
 import ch.hearc.ig.orderresto.business.Order;
+import ch.hearc.ig.orderresto.persistence.FakeDb;
 
 public class MainCLI extends AbstractCLI {
     public void run() {
@@ -16,10 +17,18 @@ public class MainCLI extends AbstractCLI {
     private void handleUserChoice(int userChoice) {
         if (userChoice == 0) {
             this.ln("Good bye!");
+            return;
         }
         OrderCLI orderCLI = new OrderCLI();
         if (userChoice == 1) {
-            Order order = orderCLI.createNewOrder();
+            Order newOrder = orderCLI.createNewOrder();
+            FakeDb.getOrders().add(newOrder);
+        } else {
+            Order existingOrder = orderCLI.selectOrder();
+            if (existingOrder != null) {
+                orderCLI.displayOrder(existingOrder);
+            }
         }
+        this.run();
     }
 }

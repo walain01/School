@@ -1,6 +1,5 @@
 package ch.hearc.ig.orderresto.presentation;
 
-import java.awt.image.SinglePixelPackedSampleModel;
 import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.InputMismatchException;

@@ -9,6 +9,7 @@ import java.util.Set;
 public class FakeDb {
     private static Set<Customer> customers;
     private static Set<Restaurant> restaurants;
+    private static Set<Order> orders;
 
     public static Set<Customer> getCustomers() {
         if (FakeDb.customers == null) {
@@ -53,6 +54,13 @@ public class FakeDb {
 
         }
         return FakeDb.restaurants;
+    }
+
+    public static Set<Order> getOrders() {
+        if (FakeDb.orders == null) {
+            FakeDb.orders = new HashSet<>();
+        }
+        return FakeDb.orders;
     }
     
 }

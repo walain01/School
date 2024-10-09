@@ -21,6 +21,7 @@ public class Order {
         this.restaurant = restaurant;
         this.products = new HashSet<>();
         this.takeAway = takeAway;
+        this.totalAmount = new BigDecimal(0);
         this.when = when;
     }
 
@@ -54,5 +55,6 @@ public class Order {
 
     public void addProduct(Product product) {
         this.products.add(product);
+        this.totalAmount.add(product.getUnitPrice());
     }
 }
