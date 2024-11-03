@@ -1,7 +1,6 @@
 package ch.hearc.ig.orderresto.business;
 
 public class Address {
-
     private String countryCode;
     private String postalCode;
     private String locality;
