@@ -13,21 +13,18 @@ import java.time.format.DateTimeFormatter;
 public class OrderCLI extends AbstractCLI {
 
     public Order createNewOrder() {
-
         this.ln("======================================================");
-        // Sélection du restaurant
         Restaurant restaurant = (new RestaurantCLI()).getExistingRestaurant();
 
         if (restaurant == null) {
-            this.ln("Restaurant non trouvé. Annulation de la commande.");
+            this.ln("Aucun restaurant sélectionné. Retour au menu principal.");
             return null;
         }
 
-        // Sélection du produit à partir du restaurant sélectionné
         Product product = (new ProductCLI()).getRestaurantProduct(restaurant);
 
         if (product == null) {
-            this.ln("Produit non trouvé. Annulation de la commande.");
+            this.ln("Aucun produit sélectionné. Retour au menu principal.");
             return null;
         }
 
@@ -38,41 +35,37 @@ public class OrderCLI extends AbstractCLI {
 
         int userChoice = this.readIntFromUser(2);
         if (userChoice == 0) {
-            this.ln("Commande annulée.");
+            this.ln("Commande annulée. Retour au menu principal.");
             return null;
         }
 
         CustomerCLI customerCLI = new CustomerCLI();
         Customer customer = null;
-
         if (userChoice == 1) {
             customer = customerCLI.getExistingCustomer();
             if (customer == null) {
-                this.ln("Client non trouvé. Annulation de la commande.");
+                this.ln("Client non trouvé. Retour au menu principal.");
                 return null;
             }
-        } else {
+        } else if (userChoice == 2) {
             customer = customerCLI.createNewCustomer();
+            if (customer == null) {
+                this.ln("Création du client annulée. Retour au menu principal.");
+                return null;
+            }
         }
 
-        // Création de la commande avec les détails choisis
+        // Création de la commande
         Order order = new Order(null, customer, restaurant, false, LocalDateTime.now());
         order.addProduct(product);
 
-        // Persistance de la commande avec OrderMapper
+        // Insertion de la commande dans la base de données
         OrderMapper orderMapper = new OrderMapper();
         orderMapper.insert(order);
 
-        this.ln("Merci pour votre commande!");
-
-        // Afficher les détails de la commande
-        displayOrder(order);
-
+        this.ln("Merci pour votre commande !");
         return order;
     }
-
-
-
 
     public Order selectOrder() {
         Customer customer = (new CustomerCLI()).getExistingCustomer();

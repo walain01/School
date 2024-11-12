@@ -32,7 +32,7 @@ public class ProductMapper {
                         rs.getString("nom"),
                         rs.getBigDecimal("prix_unitaire"),
                         rs.getString("description"),
-                        null // Le restaurant est nul car nous le connaissons déjà depuis le contexte du `RestaurantCLI`
+                        null  // Pour l'instant, on peut laisser null pour le restaurant si nécessaire
                 );
                 products.add(product);
             }
@@ -42,4 +42,5 @@ public class ProductMapper {
         }
         return products;
     }
+
 }

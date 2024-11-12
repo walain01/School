@@ -50,11 +50,12 @@ public class Product {
 
     @Override
     public String toString() {
+        String restaurantName = (this.getRestaurant() != null) ? this.getRestaurant().getName() : "Restaurant inconnu";
         return String.format(
                 "%s - %.2f de chez %s: %s",
                 this.getName(),
                 this.getUnitPrice(),
-                this.getRestaurant().getName(),
+                restaurantName,
                 this.getDescription()
         );
     }

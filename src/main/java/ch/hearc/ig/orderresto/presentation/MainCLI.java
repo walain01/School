@@ -1,9 +1,15 @@
 package ch.hearc.ig.orderresto.presentation;
 
 import ch.hearc.ig.orderresto.business.Order;
-import ch.hearc.ig.orderresto.persistence.FakeDb;
+import ch.hearc.ig.orderresto.persistence.OrderMapper;
 
 public class MainCLI extends AbstractCLI {
+    private final OrderMapper orderMapper;
+
+    public MainCLI() {
+        this.orderMapper = new OrderMapper();
+    }
+
     public void run() {
         this.ln("======================================================");
         this.ln("Que voulez-vous faire ?");
@@ -22,7 +28,10 @@ public class MainCLI extends AbstractCLI {
         OrderCLI orderCLI = new OrderCLI();
         if (userChoice == 1) {
             Order newOrder = orderCLI.createNewOrder();
-            FakeDb.getOrders().add(newOrder);
+            if (newOrder != null) {
+                // Insérer la nouvelle commande dans la base de données
+                orderMapper.insert(newOrder);
+            }
         } else {
             Order existingOrder = orderCLI.selectOrder();
             if (existingOrder != null) {
