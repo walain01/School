@@ -20,8 +20,9 @@ public class Product {
         this.description = description;
         this.orders = new HashSet<>();
         this.restaurant = restaurant;
-        restaurant.registerProduct(this);
+        // Suppression de l'appel `restaurant.registerProduct(this)` car `restaurant` peut être `null` au moment de la récupération
     }
+
 
     public Long getId() {
         return id;
