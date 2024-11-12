@@ -5,6 +5,8 @@ import ch.hearc.ig.orderresto.business.Address;
 import ch.hearc.ig.orderresto.business.Order;
 import ch.hearc.ig.orderresto.business.OrganizationCustomer;
 import ch.hearc.ig.orderresto.business.PrivateCustomer;
+import ch.hearc.ig.orderresto.identitymap.IdentityMap;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -16,9 +18,14 @@ import java.util.Set;
 public class CustomerMapper {
 
     private final DatabaseConnection databaseConnection;
+    private final IdentityMap<String, Customer> identityMap = new IdentityMap<>();
 
     public CustomerMapper() {
         this.databaseConnection = new DatabaseConnection();
+    }
+
+    public void printIdentityMap() {
+        identityMap.printCache(); // Appelle printCache() de l'IdentityMap pour afficher les clients en cache
     }
 
     // Insertion d'un client
@@ -72,11 +79,18 @@ public class CustomerMapper {
 
     // Rechercher un client par son mail
     public Optional<Customer> find(String email) {
+        // Vérifier si le client est déjà dans l'Identity Map
+        if (identityMap.contains(email)) {
+            return Optional.of(identityMap.get(email));
+        }
+
         String sql = "SELECT * FROM CLIENT WHERE email = ?";
         try (Connection conn = databaseConnection.connectToMyDB();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
+
             stmt.setString(1, email);
             ResultSet rs = stmt.executeQuery();
+
             if (rs.next()) {
                 Address address = new Address(
                         rs.getString("pays"),
@@ -106,12 +120,17 @@ public class CustomerMapper {
                             rs.getString("forme_sociale")
                     );
                 }
+
+                // Ajouter le client dans l'Identity Map
+                identityMap.put(email, customer);
+
                 return Optional.of(customer);
             }
         } catch (SQLException e) {
             System.err.println("Error finding customer: " + e.getMessage());
             e.printStackTrace();
         }
+
         return Optional.empty();
     }
 
