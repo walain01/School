@@ -42,4 +42,8 @@ public abstract class Customer {
     public void addOrder(Order order) {
         this.orders.add(order);
     }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
 }

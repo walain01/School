@@ -9,6 +9,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 public class OrderMapper {
@@ -21,24 +23,46 @@ public class OrderMapper {
 
     // Insertion d'une commande
     public void insert(Order order) {
-        String sqlOrder = "INSERT INTO COMMANDE (numero, fk_client, fk_resto, a_emporter, quand) " +
-                "VALUES (SEQ_COMMANDE.NEXTVAL, ?, ?, ?, ?)";
+        if (order.getCustomer() == null || order.getRestaurant() == null) {
+            throw new IllegalArgumentException("Le client ou le restaurant de la commande ne peut pas être null.");
+        }
+
+        if (order.getProducts() == null || order.getProducts().isEmpty()) {
+            throw new IllegalArgumentException("La commande doit contenir au moins un produit.");
+        }
+
+        String sqlOrder = "INSERT INTO COMMANDE (fk_client, fk_resto, a_emporter, quand) " +
+                "VALUES (?, ?, ?, ?)";
         try (Connection conn = databaseConnection.connectToMyDB();
              PreparedStatement stmtOrder = conn.prepareStatement(sqlOrder)) {
+
+            // Préparer et exécuter l'insertion de la commande
             stmtOrder.setLong(1, order.getCustomer().getId());
             stmtOrder.setLong(2, order.getRestaurant().getId());
             stmtOrder.setString(3, order.getTakeAway() ? "O" : "N");
             stmtOrder.setTimestamp(4, java.sql.Timestamp.valueOf(order.getWhen()));
-
             stmtOrder.executeUpdate();
 
-            // Insertion dans la table d'association PRODUIT_COMMANDE
+            // Récupérer l'ID généré pour la commande en utilisant la séquence et l'ID maximum
+            String sqlGetId = "SELECT MAX(numero) AS max_id FROM COMMANDE";
+            try (PreparedStatement stmtGetId = conn.prepareStatement(sqlGetId);
+                 ResultSet rs = stmtGetId.executeQuery()) {
+                if (rs.next()) {
+                    Long generatedId = rs.getLong("max_id");
+                    order.setId(generatedId); // Assigner l'ID généré à la commande
+                } else {
+                    throw new SQLException("La récupération de l'ID de la commande a échoué.");
+                }
+            }
+
+            // Insertion dans la table d'association PRODUIT_COMMANDE après récupération de l'ID de la commande
             String sqlProductOrder = "INSERT INTO PRODUIT_COMMANDE (fk_commande, fk_produit) VALUES (?, ?)";
             try (PreparedStatement stmtProductOrder = conn.prepareStatement(sqlProductOrder)) {
-                Product product = order.getProducts().iterator().next();
-                stmtProductOrder.setLong(1, order.getId());
-                stmtProductOrder.setLong(2, product.getId());
-                stmtProductOrder.executeUpdate();
+                for (Product product : order.getProducts()) {
+                    stmtProductOrder.setLong(1, order.getId());  // Utiliser l'ID de la commande récupéré
+                    stmtProductOrder.setLong(2, product.getId());
+                    stmtProductOrder.executeUpdate();
+                }
             }
 
             System.out.println("Order inserted successfully.");
@@ -47,6 +71,7 @@ public class OrderMapper {
             e.printStackTrace();
         }
     }
+
 
     // Rechercher une commande par son ID
     public Optional<Order> find(Long id) {
@@ -101,4 +126,59 @@ public class OrderMapper {
         }
         return Optional.empty();
     }
+
+    public List<Order> findOrdersByCustomerId(Long customerId) {
+        String sql = "SELECT * FROM COMMANDE WHERE fk_client = ?";
+        List<Order> orders = new ArrayList<>();
+        try (Connection conn = databaseConnection.connectToMyDB();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setLong(1, customerId);
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                CustomerMapper customerMapper = new CustomerMapper();
+                RestaurantMapper restaurantMapper = new RestaurantMapper();
+                Customer customer = customerMapper.find(String.valueOf(customerId)).orElse(null);
+                Restaurant restaurant = restaurantMapper.findAll().stream().filter(r -> {
+                    try {
+                        return r.getId().equals(rs.getLong("fk_resto"));
+                    } catch (SQLException e) {
+                        throw new RuntimeException(e);
+                    }
+                }).findFirst().orElse(null);
+                boolean isTakeAway = "O".equals(rs.getString("a_emporter"));
+                Order order = new Order(
+                        rs.getLong("numero"),
+                        customer,
+                        restaurant,
+                        isTakeAway,
+                        rs.getTimestamp("quand").toLocalDateTime()
+                );
+
+                // Récupérer les produits associés à la commande
+                String sqlProducts = "SELECT p.numero, p.nom, p.prix_unitaire, p.description, p.fk_resto FROM PRODUIT p " +
+                        "JOIN PRODUIT_COMMANDE pc ON p.numero = pc.fk_produit WHERE pc.fk_commande = ?";
+                try (PreparedStatement stmtProducts = conn.prepareStatement(sqlProducts)) {
+                    stmtProducts.setLong(1, order.getId());
+                    ResultSet rsProducts = stmtProducts.executeQuery();
+                    while (rsProducts.next()) {
+                        Product product = new Product(
+                                rsProducts.getLong("numero"),
+                                rsProducts.getString("nom"),
+                                rsProducts.getBigDecimal("prix_unitaire"),
+                                rsProducts.getString("description"),
+                                restaurant
+                        );
+                        order.addProduct(product);
+                    }
+                }
+
+                orders.add(order);
+            }
+        } catch (SQLException e) {
+            System.err.println("Error finding orders by customer ID: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return orders;
+    }
+
 }
