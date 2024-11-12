@@ -26,7 +26,8 @@ public class CustomerMapper {
         String sql = "INSERT INTO CLIENT (numero, email, telephone, code_postal, localite, rue, num_rue, pays, type, prenom, nom, forme_sociale, est_une_femme) " +
                 "VALUES (SEQ_CLIENT.NEXTVAL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = databaseConnection.connectToMyDB();
-             PreparedStatement stmt = conn.prepareStatement(sql, new String[] {"numero"})) {
+             PreparedStatement stmt = conn.prepareStatement(sql, new String[]{"numero"})) {
+
             stmt.setString(1, customer.getEmail());
             stmt.setString(2, customer.getPhone());
             stmt.setString(3, customer.getAddress().getPostalCode());
@@ -34,6 +35,7 @@ public class CustomerMapper {
             stmt.setString(5, customer.getAddress().getStreet());
             stmt.setString(6, customer.getAddress().getStreetNumber());
             stmt.setString(7, customer.getAddress().getCountryCode());
+
             if (customer instanceof PrivateCustomer) {
                 stmt.setString(8, "P");
                 stmt.setString(9, ((PrivateCustomer) customer).getFirstName());
@@ -50,13 +52,23 @@ public class CustomerMapper {
 
             stmt.executeUpdate();
 
+            // Récupérer l'ID généré pour le client
+            ResultSet generatedKeys = stmt.getGeneratedKeys();
+            if (generatedKeys.next()) {
+                Long generatedId = generatedKeys.getLong(1);
+                customer.setId(generatedId); // Assigner l'ID généré au client
+            } else {
+                throw new SQLException("La création du client a échoué, aucun ID généré.");
+            }
 
             System.out.println("Customer inserted successfully.");
+
         } catch (SQLException e) {
             System.err.println("Error inserting customer: " + e.getMessage());
             e.printStackTrace();
         }
     }
+
 
     // Rechercher un client par son mail
     public Optional<Customer> find(String email) {

@@ -9,6 +9,7 @@ import ch.hearc.ig.orderresto.persistence.OrderMapper;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 public class OrderCLI extends AbstractCLI {
 
@@ -73,21 +74,28 @@ public class OrderCLI extends AbstractCLI {
             this.ln(String.format("Désolé, nous ne connaissons pas cette personne."));
             return null;
         }
-        Object[] orders = customer.getOrders().toArray();
-        if (orders.length == 0) {
+
+        // Récupérer les commandes du client depuis la base de données
+        OrderMapper orderMapper = new OrderMapper();
+        List<Order> orders = orderMapper.findOrdersByCustomerId(customer.getId());
+
+        if (orders.isEmpty()) {
             this.ln(String.format("Désolé, il n'y a aucune commande pour %s", customer.getEmail()));
             return null;
         }
+
         this.ln("Choisissez une commande:");
-        for (int i = 0 ; i < orders.length ; i++) {
-            Order order = (Order) orders[i];
+        for (int i = 0 ; i < orders.size() ; i++) {
+            Order order = orders.get(i);
             LocalDateTime when = order.getWhen();
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy à hh:mm");
             this.ln(String.format("%d. %.2f, le %s chez %s.", i, order.getTotalAmount(), when.format(formatter), order.getRestaurant().getName()));
         }
-        int index = this.readIntFromUser(orders.length - 1);
-        return (Order) orders[index];
+
+        int index = this.readIntFromUser(orders.size() - 1);
+        return orders.get(index);
     }
+
 
     public void displayOrder(Order order) {
         LocalDateTime when = order.getWhen();

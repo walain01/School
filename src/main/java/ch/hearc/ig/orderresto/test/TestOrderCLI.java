@@ -9,13 +9,13 @@ public class TestOrderCLI {
         OrderCLI orderCLI = new OrderCLI();
 
         // Créer une nouvelle commande via l'interface CLI
-        System.out.println("--- Creating a New Order ---");
+       /* System.out.println("--- Creating a New Order ---");
         Order newOrder = orderCLI.createNewOrder();
         if (newOrder == null) {
             System.out.println("Order creation was canceled or failed.");
         } else {
             System.out.println("Order created successfully with ID: " + newOrder.getId());
-        }
+        }*/
 
         // Sélectionner une commande existante via l'interface CLI
         System.out.println("--- Selecting an Existing Order ---");

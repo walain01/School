@@ -9,6 +9,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 public class OrderMapper {
@@ -124,4 +126,59 @@ public class OrderMapper {
         }
         return Optional.empty();
     }
+
+    public List<Order> findOrdersByCustomerId(Long customerId) {
+        String sql = "SELECT * FROM COMMANDE WHERE fk_client = ?";
+        List<Order> orders = new ArrayList<>();
+        try (Connection conn = databaseConnection.connectToMyDB();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setLong(1, customerId);
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                CustomerMapper customerMapper = new CustomerMapper();
+                RestaurantMapper restaurantMapper = new RestaurantMapper();
+                Customer customer = customerMapper.find(String.valueOf(customerId)).orElse(null);
+                Restaurant restaurant = restaurantMapper.findAll().stream().filter(r -> {
+                    try {
+                        return r.getId().equals(rs.getLong("fk_resto"));
+                    } catch (SQLException e) {
+                        throw new RuntimeException(e);
+                    }
+                }).findFirst().orElse(null);
+                boolean isTakeAway = "O".equals(rs.getString("a_emporter"));
+                Order order = new Order(
+                        rs.getLong("numero"),
+                        customer,
+                        restaurant,
+                        isTakeAway,
+                        rs.getTimestamp("quand").toLocalDateTime()
+                );
+
+                // Récupérer les produits associés à la commande
+                String sqlProducts = "SELECT p.numero, p.nom, p.prix_unitaire, p.description, p.fk_resto FROM PRODUIT p " +
+                        "JOIN PRODUIT_COMMANDE pc ON p.numero = pc.fk_produit WHERE pc.fk_commande = ?";
+                try (PreparedStatement stmtProducts = conn.prepareStatement(sqlProducts)) {
+                    stmtProducts.setLong(1, order.getId());
+                    ResultSet rsProducts = stmtProducts.executeQuery();
+                    while (rsProducts.next()) {
+                        Product product = new Product(
+                                rsProducts.getLong("numero"),
+                                rsProducts.getString("nom"),
+                                rsProducts.getBigDecimal("prix_unitaire"),
+                                rsProducts.getString("description"),
+                                restaurant
+                        );
+                        order.addProduct(product);
+                    }
+                }
+
+                orders.add(order);
+            }
+        } catch (SQLException e) {
+            System.err.println("Error finding orders by customer ID: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return orders;
+    }
+
 }
