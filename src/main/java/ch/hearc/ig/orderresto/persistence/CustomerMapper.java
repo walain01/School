@@ -79,18 +79,80 @@ public class CustomerMapper {
 
     // Rechercher un client par son mail
     public Optional<Customer> find(String email) {
-        // Vérifier si le client est déjà dans l'Identity Map
-        if (identityMap.contains(email)) {
-            return Optional.of(identityMap.get(email));
+        // Vérifier si le client est déjà dans l'IdentityMap par email
+        if (identityMap.containsByEmail(email)) {
+            System.out.println("Client trouvé dans l'IdentityMap par email, email : " + email);
+            return Optional.of(identityMap.getByEmail(email));
         }
+
+        System.out.println("Client non trouvé dans l'IdentityMap, recherche dans la base de données par email...");
 
         String sql = "SELECT * FROM CLIENT WHERE email = ?";
         try (Connection conn = databaseConnection.connectToMyDB();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-
             stmt.setString(1, email);
             ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                Long id = rs.getLong("numero");
+                Address address = new Address(
+                        rs.getString("pays"),
+                        rs.getString("code_postal"),
+                        rs.getString("localite"),
+                        rs.getString("rue"),
+                        rs.getString("num_rue")
+                );
 
+                Customer customer;
+                if ("P".equals(rs.getString("type"))) {
+                    customer = new PrivateCustomer(
+                            id,
+                            rs.getString("telephone"),
+                            email,
+                            address,
+                            rs.getString("est_une_femme"),
+                            rs.getString("prenom"),
+                            rs.getString("nom")
+                    );
+                } else {
+                    customer = new OrganizationCustomer(
+                            id,
+                            rs.getString("telephone"),
+                            email,
+                            address,
+                            rs.getString("nom"),
+                            rs.getString("forme_sociale")
+                    );
+                }
+
+                // Ajouter le client dans l'IdentityMap (par ID et email)
+                identityMap.put(String.valueOf(id), email, customer);
+
+                return Optional.of(customer);
+            }
+        } catch (SQLException e) {
+            System.err.println("Erreur lors de la recherche du client par email : " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        return Optional.empty();
+    }
+
+
+    public Optional<Customer> findById(Long id) {
+        // Vérifier si le client est déjà dans l'IdentityMap par ID
+        if (identityMap.containsById(String.valueOf(id))) {
+            System.out.println("Client trouvé dans l'IdentityMap par ID, ID : " + id);
+            return Optional.of(identityMap.getById(String.valueOf(id)));
+        }
+
+        System.out.println("Client non trouvé dans l'IdentityMap, recherche dans la base de données par ID...");
+
+        String sql = "SELECT * FROM CLIENT WHERE numero = ?";
+        try (Connection conn = databaseConnection.connectToMyDB();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setLong(1, id);
+            ResultSet rs = stmt.executeQuery();
             if (rs.next()) {
                 Address address = new Address(
                         rs.getString("pays"),
@@ -99,12 +161,14 @@ public class CustomerMapper {
                         rs.getString("rue"),
                         rs.getString("num_rue")
                 );
+
                 Customer customer;
+                String email = rs.getString("email");
                 if ("P".equals(rs.getString("type"))) {
                     customer = new PrivateCustomer(
-                            rs.getLong("numero"),
+                            id,
                             rs.getString("telephone"),
-                            rs.getString("email"),
+                            email,
                             address,
                             rs.getString("est_une_femme"),
                             rs.getString("prenom"),
@@ -112,27 +176,30 @@ public class CustomerMapper {
                     );
                 } else {
                     customer = new OrganizationCustomer(
-                            rs.getLong("numero"),
+                            id,
                             rs.getString("telephone"),
-                            rs.getString("email"),
+                            email,
                             address,
                             rs.getString("nom"),
                             rs.getString("forme_sociale")
                     );
                 }
 
-                // Ajouter le client dans l'Identity Map
-                identityMap.put(email, customer);
+                // Ajouter le client dans l'IdentityMap (par ID et email)
+                identityMap.put(String.valueOf(id), email, customer);
 
                 return Optional.of(customer);
             }
         } catch (SQLException e) {
-            System.err.println("Error finding customer: " + e.getMessage());
+            System.err.println("Erreur lors de la recherche du client par ID : " + e.getMessage());
             e.printStackTrace();
         }
 
         return Optional.empty();
     }
+
+
+
 
 
     // Mise à jour d'un client

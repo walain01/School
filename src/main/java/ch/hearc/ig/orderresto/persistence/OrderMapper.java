@@ -4,6 +4,8 @@ import ch.hearc.ig.orderresto.business.Order;
 import ch.hearc.ig.orderresto.business.Product;
 import ch.hearc.ig.orderresto.business.Restaurant;
 import ch.hearc.ig.orderresto.business.Customer;
+import ch.hearc.ig.orderresto.identitymap.IdentityMap;
+
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -16,6 +18,7 @@ import java.util.Optional;
 public class OrderMapper {
 
     private final DatabaseConnection databaseConnection;
+    private final IdentityMap<Long, Order> identityMap = new IdentityMap<>();
 
     public OrderMapper() {
         this.databaseConnection = new DatabaseConnection();
@@ -75,15 +78,53 @@ public class OrderMapper {
 
     // Rechercher une commande par son ID
     public Optional<Order> find(Long id) {
+        System.out.println("Début de la recherche de la commande avec l'ID : " + id);
+
+        // Vérifier si la commande est déjà dans l'IdentityMap
+        if (identityMap.containsById(id)) {
+            System.out.println("Commande trouvée dans l'IdentityMap, ID : " + id);
+            return Optional.of(identityMap.getById(id));
+        }
+
+        System.out.println("Commande non trouvée dans l'IdentityMap, recherche dans la base de données...");
+
         String sqlOrder = "SELECT * FROM COMMANDE WHERE numero = ?";
         try (Connection conn = databaseConnection.connectToMyDB();
              PreparedStatement stmtOrder = conn.prepareStatement(sqlOrder)) {
+
             stmtOrder.setLong(1, id);
+            System.out.println("Exécution de la requête SQL : " + sqlOrder + " avec l'ID : " + id);
+
             ResultSet rsOrder = stmtOrder.executeQuery();
             if (rsOrder.next()) {
+                System.out.println("Commande trouvée dans la base de données, ID : " + id);
+
+                // Récupérer l'email du client associé en utilisant l'ID client (fk_client)
+                Long customerId = rsOrder.getLong("fk_client");
+                String sqlCustomerEmail = "SELECT email FROM CLIENT WHERE numero = ?";
+                String customerEmail = null;
+                try (PreparedStatement stmtCustomerEmail = conn.prepareStatement(sqlCustomerEmail)) {
+                    stmtCustomerEmail.setLong(1, customerId);
+                    ResultSet rsCustomerEmail = stmtCustomerEmail.executeQuery();
+                    if (rsCustomerEmail.next()) {
+                        customerEmail = rsCustomerEmail.getString("email");
+                        System.out.println("Email du client récupéré : " + customerEmail);
+                    } else {
+                        System.out.println("Client avec l'ID " + customerId + " non trouvé.");
+                    }
+                }
+
+                // Utiliser CustomerMapper pour trouver le client par email
                 CustomerMapper customerMapper = new CustomerMapper();
+                Customer customer = customerMapper.find(customerEmail).orElse(null);
+                if (customer != null) {
+                    System.out.println("Client associé trouvé, email : " + customer.getEmail());
+                } else {
+                    System.out.println("Client associé non trouvé, email : " + customerEmail);
+                }
+
+                // Charger le restaurant associé
                 RestaurantMapper restaurantMapper = new RestaurantMapper();
-                Customer customer = customerMapper.find(String.valueOf(rsOrder.getLong("fk_client"))).orElse(null);
                 Restaurant restaurant = restaurantMapper.findAll().stream().filter(r -> {
                     try {
                         return r.getId().equals(rsOrder.getLong("fk_resto"));
@@ -91,6 +132,7 @@ public class OrderMapper {
                         throw new RuntimeException(e);
                     }
                 }).findFirst().orElse(null);
+
                 boolean isTakeAway = "O".equals(rsOrder.getString("a_emporter"));
                 Order order = new Order(
                         rsOrder.getLong("numero"),
@@ -100,32 +142,22 @@ public class OrderMapper {
                         rsOrder.getTimestamp("quand").toLocalDateTime()
                 );
 
-                // Récupérer le produit associé à la commande
-                String sqlProducts = "SELECT p.numero, p.nom, p.prix_unitaire, p.description, p.fk_resto FROM PRODUIT p " +
-                        "JOIN PRODUIT_COMMANDE pc ON p.numero = pc.fk_produit WHERE pc.fk_commande = ?";
-                try (PreparedStatement stmtProducts = conn.prepareStatement(sqlProducts)) {
-                    stmtProducts.setLong(1, order.getId());
-                    ResultSet rsProducts = stmtProducts.executeQuery();
-                    if (rsProducts.next()) {
-                        Product product = new Product(
-                                rsProducts.getLong("numero"),
-                                rsProducts.getString("nom"),
-                                rsProducts.getBigDecimal("prix_unitaire"),
-                                rsProducts.getString("description"),
-                                restaurant
-                        );
-                        order.addProduct(product);
-                    }
-                }
+                // Ajouter la commande dans l'IdentityMap
+                System.out.println("Ajout de la commande dans l'IdentityMap, ID : " + order.getId());
+                identityMap.put(id, customer.getEmail(), order);
 
                 return Optional.of(order);
+            } else {
+                System.out.println("Commande non trouvée dans la base de données, ID : " + id);
             }
         } catch (SQLException e) {
-            System.err.println("Error finding order: " + e.getMessage());
+            System.err.println("Erreur lors de la recherche de la commande : " + e.getMessage());
             e.printStackTrace();
         }
+
         return Optional.empty();
     }
+
 
     public List<Order> findOrdersByCustomerId(Long customerId) {
         String sql = "SELECT * FROM COMMANDE WHERE fk_client = ?";
